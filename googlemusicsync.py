@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import re
-import sys
 import os
-import eyed3
 import argparse
 from gmusicapi import Musicmanager
+from mutagen.easyid3 import EasyID3
+from mutagen.flac import FLAC
 
 # Used to hold a collection of Tracks
 class TrackCollection(object):
@@ -88,15 +88,36 @@ class LocalTrackCollection(TrackCollection):
             for name in files:
                 if self._is_valid_file_name(name):
                     fullpath = os.path.join(path, name)
-                    local_track = eyed3.load(fullpath.decode('utf-8'))
-                    if local_track.tag is None:
-                        local_track.tag = eyed3.id3.Tag()
-                        local_track.tag.file_info = eyed3.id3.FileInfo(fullpath)
-                    self.add_track(local_track.tag.track_num, local_track.tag.title, local_track.tag.album, local_track.tag.artist, fullpath)
+                    if self._is_flac(name):
+                        local_track = FLAC(fullpath.decode('utf-8'))
+                    else:
+                        local_track = EasyID3(fullpath.decode('utf-8'))
+
+                 #   local_track = eyed3.load(fullpath.decode('utf-8'))
+                 #   if local_track.tag is None:
+                 #   local_track.tag = eyed3.id3.Tag()
+                 #   local_track.tag.file_info = eyed3.id3.FileInfo(fullpath)
+
+                    print('Load file {0}'.format(fullpath))
+                    print(local_track)
+
+                    if "tracknumber" in local_track:
+                        print("Track: {0} - Title: {1} - Album: {2} - Artist: {3}".format(local_track['tracknumber'], local_track['title'], local_track['album'], local_track['artist']))
+                        self.add_track(local_track['tracknumber'], local_track['title'], local_track['album'], local_track['artist'], fullpath)
+                    else:
+                        print("Track: {0} - Title: {1} - Album: {2} - Artist: {3}".format("0", name, "", ""))
+                        self.add_track(0, name, "", "", fullpath)
+
         print("Loaded {0} tracks from Local Library".format(len(self.tracks)))
     
     # Checks the file name is an mp3
     def _is_valid_file_name(self, name):
+        return self._is_flac(name) or self._is_mp3(name)
+
+    def _is_flac(self, name):
+        return name.endswith('.flac')
+
+    def _is_mp3(self, name):
         return name.endswith('.mp3')
 
 # Loads all tracks from google music
